@@ -1,9 +1,8 @@
-
 import java.util.Scanner;
 
 public class SubnetCalculator {
 
-    //changing Decimal format into binary
+    // Decimal format to binary
     public static String ipToBinary(String ip) {
         String[] octets = ip.split("\\.");
         StringBuilder binary = new StringBuilder();
@@ -14,7 +13,7 @@ public class SubnetCalculator {
         return binary.substring(0, binary.length() - 1);
     }
 
-    //changing binary into Decimal for Ip
+    // Binary to Decimal for IP
     public static String binaryToIp(String binary) {
         String[] binaries = binary.split("\\.");
         StringBuilder ip = new StringBuilder();
@@ -29,11 +28,7 @@ public class SubnetCalculator {
         String maskBin = "1".repeat(maskBits) + "0".repeat(32 - maskBits);
         StringBuilder networkBin = new StringBuilder();
         for (int i = 0; i < 32; i++) {
-            if (ipBin.charAt(i) == '1' && maskBin.charAt(i) == '1') {
-                networkBin.append('1');
-            } else {
-                networkBin.append('0');
-            }
+            networkBin.append((ipBin.charAt(i) == '1' && maskBin.charAt(i) == '1') ? '1' : '0');
         }
         return binaryToIp(networkBin.toString().replaceAll("(.{8})", "$1."));
     }
@@ -46,16 +41,6 @@ public class SubnetCalculator {
 
         try {
             int firstOctet = Integer.parseInt(octets[0]);
-            int secondOctet = Integer.parseInt(octets[1]);
-            int thirdOctet = Integer.parseInt(octets[2]);
-            int fourthOctet = Integer.parseInt(octets[3]);
-
-            if (firstOctet < 0 || firstOctet > 255 ||
-                    secondOctet < 0 || secondOctet > 255 ||
-                    thirdOctet < 0 || thirdOctet > 255 ||
-                    fourthOctet < 0 || fourthOctet > 255) {
-                throw new SubnetException("Ip address in each octet must be between 0-255");
-            }
 
             if (firstOctet >= 0 && firstOctet <= 127) {
                 return "Class A";
@@ -71,21 +56,16 @@ public class SubnetCalculator {
                 return "Unknown Class";
             }
         } catch (NumberFormatException e) {
+            return "Invalid IP Address";
         }
-        return null;
     }
-
 
     public static String getBroadcastAddress(String network, int maskBits) {
         String networkBin = ipToBinary(network).replace(".", "");
         String wildcardBin = "0".repeat(maskBits) + "1".repeat(32 - maskBits);
         StringBuilder broadcastBin = new StringBuilder();
         for (int i = 0; i < 32; i++) {
-            if (networkBin.charAt(i) == '1' || wildcardBin.charAt(i) == '1') {
-                broadcastBin.append('1');
-            } else {
-                broadcastBin.append('0');
-            }
+            broadcastBin.append((networkBin.charAt(i) == '1' || wildcardBin.charAt(i) == '1') ? '1' : '0');
         }
         return binaryToIp(broadcastBin.toString().replaceAll("(.{8})", "$1."));
     }
@@ -98,15 +78,29 @@ public class SubnetCalculator {
     public static int calculateSubnetNumber(String ip, String network, int maskBits) {
         String ipBin = ipToBinary(ip).replace(".", "");
         String networkBin = ipToBinary(network).replace(".", "");
-        int subnetNumber = 0;
 
-        for (int i = 0; i < maskBits; i++) {
-            if (ipBin.charAt(i) != networkBin.charAt(i)) {
-                subnetNumber = (int) Math.pow(2, (maskBits - i - 1));
-                break;
-            }
+        int subnetNumber = 0;
+        int borrowedBits = maskBits - getDefaultMaskBits(ip);
+
+        for (int i = 0; i < borrowedBits; i++) {
+            subnetNumber = (subnetNumber << 1) | (ipBin.charAt(maskBits - borrowedBits + i) - '0');
         }
+
         return subnetNumber;
+    }
+
+    public static int getDefaultMaskBits(String ip) {
+        String ipClass = getIpClass(ip);
+        switch (ipClass) {
+            case "Class A":
+                return 8;
+            case "Class B":
+                return 16;
+            case "Class C":
+                return 24;
+            default:
+                throw new IllegalArgumentException("Unsupported IP Class for subnetting");
+        }
     }
 
     public static void calculateSubnetInfo(String ipWithMask) {
@@ -123,7 +117,7 @@ public class SubnetCalculator {
 
         String ipClass = getIpClass(ip);
 
-        int subnetNumber = calculateSubnetNumber(ip,network,maskBits);
+        int subnetNumber = calculateSubnetNumber(ip, network, maskBits);
 
         String networkBin = ipToBinary(network);
         String broadcastBin = ipToBinary(broadcast);
@@ -150,15 +144,15 @@ public class SubnetCalculator {
     }
 
     public static void main(String[] args) {
-        while(true) {
+        while (true) {
             try {
                 Scanner scanner = new Scanner(System.in);
                 System.out.print("Enter IP address with mask (e.g., 192.168.1.1/24): ");
                 String ipWithMask = scanner.nextLine();
                 calculateSubnetInfo(ipWithMask);
 
-            }catch (ArrayIndexOutOfBoundsException | StringIndexOutOfBoundsException e){
-                System.err.println("Input must be the Ip address with CIDR notation.");
+            } catch (ArrayIndexOutOfBoundsException | StringIndexOutOfBoundsException e) {
+                System.err.println("Input must be the IP address with CIDR notation.");
                 System.out.println();
             }
         }
